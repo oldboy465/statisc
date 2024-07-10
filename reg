@@ -1,0 +1,129 @@
+# Importando as bibliotecas necessárias
+import pandas as pd
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+from scipy.stats import shapiro
+from google.colab import files
+import ipywidgets as widgets
+from IPython.display import display
+import numpy as np
+
+# Função para carregar o arquivo
+def upload_file():
+    uploaded = files.upload()
+    for filename in uploaded.keys():
+        print(f'Arquivo "{filename}" carregado com sucesso!')
+        return filename
+
+# Função para transformar as variáveis
+def transformar_variaveis(df, escolha):
+    if escolha == 'Padronização Z':
+        df = (df - df.mean()) / df.std()
+    elif escolha == 'Raiz Quadrada':
+        df = df.apply(lambda x: np.sqrt(x) if x >= 0 else np.nan)
+    else:
+        print("Escolha inválida. Nenhuma transformação será aplicada.")
+
+    # Verificar e remover valores NaN ou infinitos
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
+
+    return df
+
+# Função para exibir estatísticas descritivas das variáveis
+def exibir_descritivo(df):
+    descritivo = df.describe()
+    print("\nEstatísticas Descritivas das Variáveis:")
+    print(descritivo)
+
+# Carregar o arquivo .xlsx
+file_name = upload_file()
+df = pd.read_excel(file_name)
+
+# Listando as variáveis disponíveis
+variables = df.columns.tolist()
+print("Variáveis disponíveis:")
+print(variables)
+
+# Criar widgets para seleção de variáveis
+var_dependente_widget = widgets.Dropdown(
+    options=variables,
+    description='Dependente:',
+    disabled=False,
+)
+var_independentes_widget = widgets.SelectMultiple(
+    options=variables,
+    description='Independentes:',
+    disabled=False,
+)
+transformation_widget = widgets.Dropdown(
+    options=['Nenhuma', 'Padronização Z', 'Raiz Quadrada'],
+    description='Transformação:',
+    disabled=False,
+)
+button = widgets.Button(description="Iniciar Análise")
+
+# Função para iniciar a análise
+def iniciar_analise(b):
+    var_dependente = var_dependente_widget.value
+    var_independentes = list(var_independentes_widget.value)
+    escolha = transformation_widget.value
+
+    if not var_dependente or not var_independentes:
+        print("Por favor, selecione as variáveis dependente e independentes.")
+        return
+
+    # Realizando a transformação das variáveis independentes
+    X = df[var_independentes]
+    if escolha != 'Nenhuma':
+        X = transformar_variaveis(X, escolha)
+    X = sm.add_constant(X)  # adiciona a constante para o intercepto
+    y = df[var_dependente]
+    if escolha != 'Nenhuma':
+        y = transformar_variaveis(pd.DataFrame(y), escolha).iloc[:, 0]  # Transformação da variável dependente também (se necessário)
+
+    # Verificar se ainda há dados suficientes após a transformação
+    if X.shape[0] == 0 or y.shape[0] == 0:
+        print("Erro: A transformação resultou em dados insuficientes.")
+        return
+
+    # Realizando a análise de regressão linear
+    model = sm.OLS(y, X).fit()
+
+    # Exibindo os resultados da regressão
+    print("\nResultados da Regressão:")
+    print(model.summary())
+
+    # Exibindo estatísticas descritivas das variáveis selecionadas
+    exibir_descritivo(df[var_independentes + [var_dependente]])
+
+    # Gerando o gráfico da regressão
+    if len(var_independentes) == 1:  # gráfico só faz sentido para uma variável independente
+        fig, ax = plt.subplots()
+        ax.scatter(X.iloc[:, 1], y, label='Dados')
+        ax.plot(X.iloc[:, 1], model.predict(X), color='red', label='Regressão')
+        ax.set_xlabel(var_independentes[0])
+        ax.set_ylabel(var_dependente)
+        ax.legend()
+        plt.title('Regressão Linear Simples')
+
+        # Adicionar a equação da regressão no gráfico
+        intercept, slope = model.params
+        equation = f'{var_dependente} = {intercept:.2f} + {slope:.2f} * {var_independentes[0]}'
+        plt.annotate(equation, xy=(0.05, 0.95), xycoords='axes fraction', fontsize=12,
+                     bbox=dict(facecolor='white', alpha=0.6))
+
+        plt.show()
+
+    # Teste de normalidade dos resíduos (usando teste Shapiro-Wilk)
+    residuos = model.resid
+    stat, p_valor = shapiro(residuos)
+    print(f"\nTeste de Normalidade dos Resíduos (Shapiro-Wilk):")
+    print(f"Estatística de teste: {stat}")
+    print(f"P-valor: {p_valor}")
+
+# Conectar o botão à função de iniciar análise
+button.on_click(iniciar_analise)
+
+# Exibir widgets
+display(var_dependente_widget, var_independentes_widget, transformation_widget, button)
