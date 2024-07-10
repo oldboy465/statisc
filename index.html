@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Regressão</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        select, input[type="file"], button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            white-space: pre-wrap; /* Para preservar os espaços em branco */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Análise de Regressão</h2>
+        <div class="form-group">
+            <label for="fileInput">Carregar arquivo .xlsx:</label>
+            <input type="file" id="fileInput" accept=".xlsx">
+        </div>
+        <div class="form-group">
+            <label for="varDependente">Variável Dependente:</label>
+            <select id="varDependente"></select>
+        </div>
+        <div class="form-group">
+            <label for="varIndependentes">Variáveis Independentes:</label>
+            <select id="varIndependentes" multiple></select>
+        </div>
+        <div class="form-group">
+            <label for="transformation">Transformação:</label>
+            <select id="transformation">
+                <option value="Nenhuma">Nenhuma</option>
+                <option value="Padronização Z">Padronização Z</option>
+                <option value="Raiz Quadrada">Raiz Quadrada</option>
+            </select>
+        </div>
+        <button onclick="startAnalysis()">Iniciar Análise</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function startAnalysis() {
+            const fileInput = document.getElementById('fileInput');
+            const varDependente = document.getElementById('varDependente').value;
+            const varIndependentes = Array.from(document.getElementById('varIndependentes').selectedOptions).map(option => option.value);
+            const transformation = document.getElementById('transformation').value;
+
+            if (fileInput.files.length === 0) {
+                alert('Por favor, carregue um arquivo .xlsx.');
+                return;
+            }
+            if (!varDependente || varIndependentes.length === 0) {
+                alert('Por favor, selecione as variáveis dependente e independentes.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('varDependente', varDependente);
+            formData.append('varIndependentes', JSON.stringify(varIndependentes));
+            formData.append('transformation', transformation);
+
+            fetch('/analyze', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(result => {
+                document.getElementById('result').textContent = result;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
